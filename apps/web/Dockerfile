@@ -24,6 +24,7 @@ RUN --mount=type=bind,source=.git,target=/src/.git /src/scripts/docker-link-repo
 
 # Build
 ARG NODE_OPTIONS=--max-old-space-size=4096
+RUN apt-get update && apt-get install -y --no-install-recommends jq && rm -rf /var/lib/apt/lists/*
 COPY --link --exclude=.git --exclude=apps/web/docker . /src
 RUN --mount=type=bind,source=.git,target=/src/.git /src/scripts/docker-package.sh
 
