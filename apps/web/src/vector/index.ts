@@ -17,6 +17,7 @@ import { shouldPolyfill as shouldPolyFillIntlSegmenter } from "@formatjs/intl-se
 import { parseAppUrl } from "./url_utils";
 import "./modernizr.cjs";
 import { polyfillTouchEvent } from "../@types/polyfill";
+import { prepareConnectTransport } from "./connectTransport";
 
 import "../../res/css/_index.pcss";
 // Require common CSS here; this will make webpack process it into bundle.css.
@@ -145,7 +146,8 @@ async function start(): Promise<void> {
         // (https://github.com/element-hq/element-web/issues/7378)
         const preventRedirect = !!parsedUrl.params.threepid || parsedUrl.location.length > 0;
 
-        if (!preventRedirect) {
+        const connectTransportEnabled = await prepareConnectTransport();
+        if (!preventRedirect && !connectTransportEnabled) {
             const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
             const isAndroid = /Android/.test(navigator.userAgent);
             if (isIos || isAndroid) {
