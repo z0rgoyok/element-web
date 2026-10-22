@@ -9,6 +9,78 @@ import { describe, expect, it } from "vitest";
 import { connectTransport, isConnectMutation } from "./connectTransport";
 
 describe("Connect transport", () => {
+    it("waits for gateway capacity and preserves Matrix errors", async () => {
+        let polls = 0;
+        const send: typeof fetch = async (input, init) => {
+            const id = new Headers(init?.headers).get("X-Connect-Id")!;
+            const headers = { "X-Connect-Id": id };
+            if (String(input).includes("/execute?")) {
+                if (++polls === 1) return new Response("{}", { status: 429, headers });
+                if (polls === 2) return new Response("{}", { status: 202, headers });
+                return new Response(
+                    JSON.stringify({
+                        id,
+                        status: 429,
+                        headers: { "Retry-After": "5" },
+                        body: Buffer.from('{"errcode":"M_LIMIT_EXCEEDED"}').toString("base64url"),
+                    }),
+                    { headers },
+                );
+            }
+            return new Response(JSON.stringify({ id }), { headers });
+        };
+        const response = await connectTransport(
+            new Request("https://connect.test/_matrix/client/v3/login", { method: "POST" }),
+            send,
+        );
+        expect(response.status).toBe(429);
+        expect(response.headers.get("Retry-After")).toBe("5");
+        expect(await response.json()).toEqual({ errcode: "M_LIMIT_EXCEEDED" });
+        expect(polls).toBe(3);
+    });
+
+    it.each([
+        { status: 999, headers: {}, body: "" },
+        { status: 200, headers: { "Content-Type": 42 }, body: "" },
+        { status: 204, headers: {}, body: "eA" },
+    ])("rejects invalid response envelopes", async (envelope) => {
+        const send: typeof fetch = async (input, init) => {
+            const id = new Headers(init?.headers).get("X-Connect-Id")!;
+            const reply = String(input).includes("/execute?") ? { id, ...envelope } : { id };
+            return new Response(JSON.stringify(reply), { headers: { "X-Connect-Id": id } });
+        };
+        await expect(
+            connectTransport(new Request("https://connect.test/_matrix/client/v3/login", { method: "POST" }), send),
+        ).rejects.toThrow("Invalid");
+    });
+
+    it("cancels outstanding packets when the caller aborts", async () => {
+        const controller = new AbortController();
+        let cleanup = false;
+        const send: typeof fetch = async (input, init) => {
+            const id = new Headers(init?.headers).get("X-Connect-Id")!;
+            if (String(input).includes("/cancel?")) {
+                cleanup = true;
+                return new Response(JSON.stringify({ id }), { headers: { "X-Connect-Id": id } });
+            }
+            return new Promise<Response>((_, reject) => {
+                init!.signal!.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), {
+                    once: true,
+                });
+                controller.abort();
+            });
+        };
+        await expect(
+            connectTransport(
+                new Request("https://connect.test/_matrix/client/v3/login", {
+                    method: "POST",
+                    signal: controller.signal,
+                }),
+                send,
+            ),
+        ).rejects.toThrow("Aborted");
+        expect(cleanup).toBe(true);
+    });
     it("restricts interception to same-origin Matrix mutations", () => {
         const origin = "https://connect.test";
         expect(isConnectMutation(new Request(origin + "/_matrix/client/v3/login", { method: "POST" }), origin)).toBe(

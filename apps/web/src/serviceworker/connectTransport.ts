@@ -99,8 +99,8 @@ export async function connectTransport(request: Request, send: typeof fetch = fe
         );
         while (true) {
             const response = await packet("execute");
-            if (response.status === 202) {
-                await new Promise<void>((resolve) => setTimeout(resolve, 250));
+            if (response.status === 202 || response.status === 429) {
+                await new Promise<void>((resolve) => setTimeout(resolve, response.status === 429 ? 500 : 250));
                 continue;
             }
             if (!response.ok)
