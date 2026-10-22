@@ -13,13 +13,24 @@ import { buildAndEncodePickleKey } from "../utils/tokens/pickling";
 import { connectTransport, isConnectMutation } from "./connectTransport";
 
 // The deployment explicitly enables this transport; upstream Element remains unchanged by default.
-const connectEnabled = fetch(new URL("connect-transport.json", global.location.href), { cache: "no-store" })
-    .then(async (response) => response.ok && (await response.json()).enabled === true)
-    .catch(() => false);
+let connectEnabled: Promise<boolean> | undefined;
+function connectConfiguration(refresh = false): Promise<boolean> {
+    if (!connectEnabled || refresh) {
+        connectEnabled = fetch(new URL("connect-transport.json", global.location.href), {
+            cache: "no-store",
+            signal: AbortSignal.timeout(15_000),
+        })
+            .then(async (response) => response.ok && (await response.json()).enabled === true)
+            .catch(() => false);
+    }
+    return connectEnabled;
+}
 
 global.addEventListener("message", (event: MessageEvent) => {
     if (event.data?.type === "connect-transport-ready") {
-        void connectEnabled.then((enabled) => event.ports[0]?.postMessage({ connectTransport: enabled ? 1 : 0 }));
+        void connectConfiguration(true).then((enabled) =>
+            event.ports[0]?.postMessage({ connectTransport: enabled ? 1 : 0 }),
+        );
     }
 });
 
@@ -48,7 +59,9 @@ global.addEventListener("activate", (event) => {
 global.addEventListener("fetch", (event: FetchEvent) => {
     if (isConnectMutation(event.request, global.location.origin)) {
         event.respondWith(
-            connectEnabled.then((enabled) => (enabled ? connectTransport(event.request) : fetch(event.request))),
+            connectConfiguration().then((enabled) =>
+                enabled ? connectTransport(event.request) : fetch(event.request),
+            ),
         );
         return;
     }

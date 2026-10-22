@@ -5,16 +5,30 @@ SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE in the repository root for full details.
 */
 
+async function bounded<T>(operation: Promise<T>): Promise<T> {
+    let timeout: ReturnType<typeof setTimeout>;
+    try {
+        return await Promise.race([
+            operation,
+            new Promise<never>((_, reject) => {
+                timeout = setTimeout(() => reject(new Error("Connect worker startup timed out")), 15_000);
+            }),
+        ]);
+    } finally {
+        clearTimeout(timeout!);
+    }
+}
+
 /** Require a controlling transport worker before Element can send its first login request. */
 export async function prepareConnectTransport(): Promise<boolean> {
-    const response = await fetch("connect-transport.json", { cache: "no-store" });
+    const response = await fetch("connect-transport.json", { cache: "no-store", signal: AbortSignal.timeout(15_000) });
     if (response.status === 404) return false;
     if (!response.ok) throw new Error("Cannot load Connect transport configuration");
     const config = await response.json();
     if (config.enabled !== true) return false;
     if (!("serviceWorker" in navigator)) throw new Error("Connect requires Service Worker support");
-    await navigator.serviceWorker.register("sw.js", { updateViaCache: "none" });
-    await navigator.serviceWorker.ready;
+    await bounded(navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }));
+    await bounded(navigator.serviceWorker.ready);
     if (!navigator.serviceWorker.controller) {
         await new Promise<void>((resolve, reject) => {
             const listener = (): void => {
