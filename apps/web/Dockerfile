@@ -23,6 +23,7 @@ RUN pnpm install --frozen-lockfile
 RUN --mount=type=bind,source=.git,target=/src/.git /src/scripts/docker-link-repos.sh
 
 # Build
+ARG NODE_OPTIONS=--max-old-space-size=4096
 COPY --link --exclude=.git --exclude=apps/web/docker . /src
 RUN --mount=type=bind,source=.git,target=/src/.git /src/scripts/docker-package.sh
 

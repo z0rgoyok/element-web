@@ -703,6 +703,7 @@ export default (env: string, argv: Record<string, any>): webpack.Configuration =
 
             new CopyWebpackPlugin({
                 patterns: [
+                    "res/connect-transport.json",
                     "res/apple-app-site-association",
                     { from: ".well-known/**", context: path.resolve(__dirname, "res") },
                     "res/jitsi_external_api.min.js",

@@ -10,6 +10,18 @@ import { type AESEncryptedSecretStoragePayload } from "matrix-js-sdk/src/types";
 import { idbLoad } from "../utils/StorageAccess";
 import { ACCESS_TOKEN_NAME, tryDecryptToken } from "../utils/tokens/tokens";
 import { buildAndEncodePickleKey } from "../utils/tokens/pickling";
+import { connectTransport, isConnectMutation } from "./connectTransport";
+
+// The deployment explicitly enables this transport; upstream Element remains unchanged by default.
+const connectEnabled = fetch(new URL("connect-transport.json", global.location.href), { cache: "no-store" })
+    .then(async (response) => response.ok && (await response.json()).enabled === true)
+    .catch(() => false);
+
+global.addEventListener("message", (event: MessageEvent) => {
+    if (event.data?.type === "connect-transport-ready") {
+        void connectEnabled.then((enabled) => event.ports[0]?.postMessage({ connectTransport: enabled ? 1 : 0 }));
+    }
+});
 
 const serverSupportMap: {
     [serverUrl: string]: {
@@ -34,6 +46,12 @@ global.addEventListener("activate", (event) => {
 // have been spent trying to convince the type system that there's no actual conflict, but it has yet to work. Instead
 // of trying to make it do the thing, we force-cast to something close enough where we can (and ignore errors otherwise).
 global.addEventListener("fetch", (event: FetchEvent) => {
+    if (isConnectMutation(event.request, global.location.origin)) {
+        event.respondWith(
+            connectEnabled.then((enabled) => (enabled ? connectTransport(event.request) : fetch(event.request))),
+        );
+        return;
+    }
     // This is the authenticated media (MSC3916) check, proxying what was unauthenticated to the authenticated variants.
 
     if (event.request.method !== "GET") {
