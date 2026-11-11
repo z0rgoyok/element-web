@@ -17,6 +17,15 @@ test("Connect controls the first page and transports fetch and XHR without VPN",
             body: JSON.stringify({ fixture: "login" }),
         });
         const loginBody = await login.json();
+        document.cookie = "connect_fixture=request; path=/; SameSite=Lax";
+        const cookieResponse = await fetch("/_matrix/client/v3/cookie", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: "{}",
+        });
+        const cookieBody = await cookieResponse.json();
+        const cookiesAfterResponse = document.cookie;
         const bytes = new Uint8Array(1024 * 1024).map((_, index) => index % 251);
         const upload = await new Promise<string>((resolve, reject) => {
             const xhr = new XMLHttpRequest();
@@ -27,11 +36,22 @@ test("Connect controls the first page and transports fetch and XHR without VPN",
             xhr.send(bytes);
         });
         const logout = await fetch("/_matrix/client/v3/logout", { method: "POST" });
-        return { loginStatus: login.status, loginBody, upload: JSON.parse(upload), logoutStatus: logout.status };
+        return {
+            loginStatus: login.status,
+            loginBody,
+            cookieStatus: cookieResponse.status,
+            cookieBody,
+            cookiesAfterResponse,
+            upload: JSON.parse(upload),
+            logoutStatus: logout.status,
+        };
     });
     expect(result).toEqual({
         loginStatus: 200,
         loginBody: { fixture: "login" },
+        cookieStatus: 200,
+        cookieBody: { cookie: true },
+        cookiesAfterResponse: "connect_fixture=response",
         upload: { size: 1024 * 1024, valid: true },
         logoutStatus: 204,
     });
