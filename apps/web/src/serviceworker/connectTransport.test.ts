@@ -81,11 +81,12 @@ describe("Connect transport", () => {
         ).rejects.toThrow("Aborted");
         expect(cleanup).toBe(true);
     });
-    it("restricts interception to same-origin Matrix mutations", () => {
+    it("restricts interception to same-origin Matrix and MAS mutations", () => {
         const origin = "https://connect.test";
         expect(isConnectMutation(new Request(origin + "/_matrix/client/v3/login", { method: "POST" }), origin)).toBe(
             true,
         );
+        expect(isConnectMutation(new Request(origin + "/auth/oauth2/device", { method: "POST" }), origin)).toBe(true);
         for (const url of [origin + "/_synapse/admin/v1/register", "https://other.test/_matrix/client/v3/login"]) {
             expect(isConnectMutation(new Request(url, { method: "POST" }), origin)).toBe(false);
         }

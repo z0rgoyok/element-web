@@ -149,6 +149,8 @@ export function isConnectMutation(request: Request, origin: string): boolean {
     return (
         url.origin === origin &&
         ["POST", "PUT", "DELETE", "PATCH"].includes(request.method) &&
-        (url.pathname.startsWith("/_matrix/client/") || url.pathname.startsWith("/_matrix/media/"))
+        (url.pathname.startsWith("/_matrix/client/") ||
+            url.pathname.startsWith("/_matrix/media/") ||
+            url.pathname.startsWith("/auth/"))
     );
 }
