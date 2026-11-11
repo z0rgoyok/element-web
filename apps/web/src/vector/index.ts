@@ -100,6 +100,10 @@ function checkBrowserFeatures(): boolean {
 }
 
 const supportedBrowser = checkBrowserFeatures();
+// Start the transport worker while the rest of the application initialises. Connect must own
+// the first mutation, and waiting for unrelated startup work adds visible latency to login.
+const connectTransportStartup = prepareConnectTransport();
+void connectTransportStartup.catch(() => undefined);
 
 // React depends on Map & Set which we check for using modernizr's es6collections
 // if modernizr fails we may not have a functional react to show the error message.
@@ -146,7 +150,7 @@ async function start(): Promise<void> {
         // (https://github.com/element-hq/element-web/issues/7378)
         const preventRedirect = !!parsedUrl.params.threepid || parsedUrl.location.length > 0;
 
-        const connectTransportEnabled = await prepareConnectTransport();
+        const connectTransportEnabled = await connectTransportStartup;
         if (!preventRedirect && !connectTransportEnabled) {
             const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
             const isAndroid = /Android/.test(navigator.userAgent);
