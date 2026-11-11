@@ -7,6 +7,30 @@ Please see LICENSE in the repository root for full details.
 
 const CHUNK_SIZE = 3072;
 const MAX_BODY = 50 * 1024 * 1024;
+const MAX_HEADERS = 64;
+const MAX_HEADER_VALUE = 8192;
+
+const hopByHopHeaders = new Set([
+    "connection",
+    "keep-alive",
+    "proxy-authenticate",
+    "proxy-authorization",
+    "proxy-connection",
+    "te",
+    "trailer",
+    "transfer-encoding",
+    "upgrade",
+]);
+
+function blockedHeader(name: string): boolean {
+    const lower = name.toLowerCase();
+    return (
+        hopByHopHeaders.has(lower) ||
+        ["content-length", "cookie", "host", "set-cookie"].includes(lower) ||
+        lower.startsWith("x-connect-") ||
+        lower.startsWith("x-forwarded-")
+    );
+}
 
 function encode(bytes: Uint8Array): string {
     let text = "";
@@ -31,9 +55,14 @@ export async function connectTransport(request: Request, send: typeof fetch = fe
     ).join("");
     const id = `${Date.now().toString(16).padStart(16, "0")}-${random}`;
     const headers: Record<string, string> = {};
-    for (const name of ["authorization", "content-type", "if-none-match", "if-match"]) {
-        const value = request.headers.get(name);
-        if (value) headers[name] = value;
+    let headerBytes = 0;
+    for (const [name, value] of request.headers) {
+        if (blockedHeader(name)) continue;
+        headers[name] = value;
+        headerBytes += name.length + value.length;
+    }
+    if (Object.keys(headers).length > MAX_HEADERS || headerBytes > 64 * 1024) {
+        throw new Error("Connect request headers exceed limit");
     }
     const meta = new TextEncoder().encode(
         JSON.stringify({
@@ -119,12 +148,21 @@ export async function connectTransport(request: Request, send: typeof fetch = fe
                 throw new Error("Invalid Connect response envelope");
             }
             const responseHeaders = new Headers({ "Cache-Control": "no-store" });
-            for (const name of ["Content-Type", "ETag", "Retry-After", "WWW-Authenticate"]) {
-                const value = envelope.headers[name];
-                if (value !== undefined) {
-                    if (typeof value !== "string" || value.length > 4096) throw new Error("Invalid Connect header");
-                    responseHeaders.set(name, value);
+            const entries = Object.entries(envelope.headers);
+            if (entries.length > MAX_HEADERS) throw new Error("Invalid Connect header count");
+            for (const [name, value] of entries) {
+                if (blockedHeader(name)) continue;
+                if (
+                    name.length === 0 ||
+                    name.length > 256 ||
+                    typeof value !== "string" ||
+                    value.length > MAX_HEADER_VALUE ||
+                    value.includes("\r") ||
+                    value.includes("\n")
+                ) {
+                    throw new Error("Invalid Connect header");
                 }
+                responseHeaders.set(name, value);
             }
             const responseBody = decode(envelope.body);
             const emptyStatus = [204, 205, 304].includes(envelope.status);
