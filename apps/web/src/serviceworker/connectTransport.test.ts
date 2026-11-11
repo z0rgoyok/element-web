@@ -8,13 +8,19 @@ import { describe, expect, it } from "vitest";
 
 import { connectTransport, isConnectMutation } from "./connectTransport";
 
+function inputUrl(input: RequestInfo | URL): string {
+    if (input instanceof Request) return input.url;
+    if (input instanceof URL) return input.href;
+    return input;
+}
+
 describe("Connect transport", () => {
     it("waits for gateway capacity and preserves Matrix errors", async () => {
         let polls = 0;
         const send: typeof fetch = async (input, init) => {
             const id = new Headers(init?.headers).get("X-Connect-Id")!;
             const headers = { "X-Connect-Id": id };
-            if (String(input).includes("/execute?")) {
+            if (inputUrl(input).includes("/execute?")) {
                 if (++polls === 1) return new Response("{}", { status: 429, headers });
                 if (polls === 2) return new Response("{}", { status: 202, headers });
                 return new Response(
@@ -46,7 +52,7 @@ describe("Connect transport", () => {
     ])("rejects invalid response envelopes", async (envelope) => {
         const send: typeof fetch = async (input, init) => {
             const id = new Headers(init?.headers).get("X-Connect-Id")!;
-            const reply = String(input).includes("/execute?") ? { id, ...envelope } : { id };
+            const reply = inputUrl(input).includes("/execute?") ? { id, ...envelope } : { id };
             return new Response(JSON.stringify(reply), { headers: { "X-Connect-Id": id } });
         };
         await expect(
@@ -59,7 +65,7 @@ describe("Connect transport", () => {
         let cleanup = false;
         const send: typeof fetch = async (input, init) => {
             const id = new Headers(init?.headers).get("X-Connect-Id")!;
-            if (String(input).includes("/cancel?")) {
+            if (inputUrl(input).includes("/cancel?")) {
                 cleanup = true;
                 return new Response(JSON.stringify({ id }), { headers: { "X-Connect-Id": id } });
             }
@@ -88,7 +94,9 @@ describe("Connect transport", () => {
         );
         expect(isConnectMutation(new Request(origin + "/auth/oauth2/device", { method: "POST" }), origin)).toBe(true);
         for (const method of ["GET", "PUT", "DELETE"] as const) {
-            expect(isConnectMutation(new Request(origin + "/_synapse/client/rendezvous/01ABC", { method }), origin)).toBe(true);
+            expect(
+                isConnectMutation(new Request(origin + "/_synapse/client/rendezvous/01ABC", { method }), origin),
+            ).toBe(true);
         }
         for (const url of [origin + "/_synapse/admin/v1/register", "https://other.test/_matrix/client/v3/login"]) {
             expect(isConnectMutation(new Request(url, { method: "POST" }), origin)).toBe(false);
@@ -108,7 +116,7 @@ describe("Connect transport", () => {
             expect(init?.cache).toBe("no-store");
             const headers = new Headers(init?.headers);
             const id = headers.get("X-Connect-Id")!;
-            const path = new URL(String(input)).pathname;
+            const path = new URL(inputUrl(input)).pathname;
             let reply: object = { id };
             if (path.endsWith("/begin"))
                 meta = JSON.parse(Buffer.from(headers.get("X-Connect-Meta")!, "base64url").toString());
@@ -119,7 +127,19 @@ describe("Connect transport", () => {
             }
             if (path.endsWith("/execute")) {
                 executed++;
-                reply = { id, status: 201, headers: { "Content-Type": "application/octet-stream" }, body: "AP8" };
+                reply = {
+                    id,
+                    status: 201,
+                    headers: {
+                        "Content-Type": "application/octet-stream",
+                        "Etag": '"fixture"',
+                        "Location": "/_matrix/client/v3/next",
+                        "Set-Cookie": "session=secret",
+                        "X-Connect-Internal": "private",
+                        "X-Matrix-Test": "preserved",
+                    },
+                    body: "AP8",
+                };
             }
             if (path.endsWith("/cancel")) cancelled = true;
             return new Response(JSON.stringify(reply), { headers: { "X-Connect-Id": id } });
@@ -128,7 +148,13 @@ describe("Connect transport", () => {
             new Request("https://connect.test/_matrix/media/v3/upload?filename=x", {
                 method: "POST",
                 body: source,
-                headers: { "Authorization": "Bearer fixture", "Content-Type": "application/octet-stream" },
+                headers: {
+                    "Authorization": "Bearer fixture",
+                    "Content-Type": "application/octet-stream",
+                    "If-Match": '"previous"',
+                    "If-None-Match": '"current"',
+                    "X-Matrix-Test": "preserved",
+                },
             }),
             send,
         );
@@ -136,12 +162,22 @@ describe("Connect transport", () => {
             length: 10_000,
             method: "POST",
             path: "/_matrix/media/v3/upload?filename=x",
-            headers: { authorization: "Bearer fixture" },
+            headers: {
+                "authorization": "Bearer fixture",
+                "if-match": '"previous"',
+                "if-none-match": '"current"',
+                "x-matrix-test": "preserved",
+            },
         });
         expect(Buffer.concat([...chunks.entries()].sort(([a], [b]) => a - b).map(([, bytes]) => bytes))).toEqual(
             Buffer.from(source),
         );
         expect(response.status).toBe(201);
+        expect(response.headers.get("ETag")).toBe('"fixture"');
+        expect(response.headers.get("Location")).toBe("/_matrix/client/v3/next");
+        expect(response.headers.get("X-Matrix-Test")).toBe("preserved");
+        expect(response.headers.get("Set-Cookie")).toBeNull();
+        expect(response.headers.get("X-Connect-Internal")).toBeNull();
         expect([...new Uint8Array(await response.arrayBuffer())]).toEqual([0, 255]);
         expect(executed).toBe(1);
         expect(cancelled).toBe(true);
@@ -163,7 +199,7 @@ describe("Connect transport", () => {
         const ids: string[] = [];
         const send: typeof fetch = async (input, init) => {
             const id = new Headers(init?.headers).get("X-Connect-Id")!;
-            if (String(input).includes("/execute?")) {
+            if (inputUrl(input).includes("/execute?")) {
                 ids.push(id);
                 if (ids.length === 1) throw new TypeError("connection lost");
                 return new Response(JSON.stringify({ id, status: 204, headers: {}, body: "" }), {
