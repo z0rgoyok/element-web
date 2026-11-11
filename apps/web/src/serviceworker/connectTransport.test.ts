@@ -87,6 +87,9 @@ describe("Connect transport", () => {
             true,
         );
         expect(isConnectMutation(new Request(origin + "/auth/oauth2/device", { method: "POST" }), origin)).toBe(true);
+        for (const method of ["GET", "PUT", "DELETE"] as const) {
+            expect(isConnectMutation(new Request(origin + "/_synapse/client/rendezvous/01ABC", { method }), origin)).toBe(true);
+        }
         for (const url of [origin + "/_synapse/admin/v1/register", "https://other.test/_matrix/client/v3/login"]) {
             expect(isConnectMutation(new Request(url, { method: "POST" }), origin)).toBe(false);
         }
