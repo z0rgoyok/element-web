@@ -9,7 +9,6 @@ Please see LICENSE files in the repository root for full details.
 import React from "react";
 import { type MatrixClient } from "matrix-js-sdk/src/matrix";
 import QrCodeIcon from "@vector-im/compound-design-tokens/assets/web/icons/qr-code";
-import { Text } from "@vector-im/compound-web";
 import { isSignInWithQRAvailable } from "matrix-js-sdk/src/rendezvous";
 
 import { _t } from "../../../../languageHandler";
@@ -37,6 +36,8 @@ const LoginWithQRSection: React.FC<IProps> = ({ onShowQr, isCrossSigningReady })
         false,
     );
 
+    if (!offerShowQr) return null;
+
     return (
         <SettingsSubsection heading={_t("settings|sessions|sign_in_with_qr")}>
             <div className="mx_LoginWithQRSection">
@@ -45,7 +46,6 @@ const LoginWithQRSection: React.FC<IProps> = ({ onShowQr, isCrossSigningReady })
                     <QrCodeIcon height={20} width={20} />
                     {_t("settings|sessions|sign_in_with_qr_button")}
                 </AccessibleButton>
-                {!offerShowQr && <Text size="sm">{_t("settings|sessions|sign_in_with_qr_unsupported")}</Text>}
             </div>
         </SettingsSubsection>
     );

@@ -12,6 +12,7 @@ import { type LogSpan } from "matrix-js-sdk/src/logger";
 import { type MatrixClient } from "matrix-js-sdk/src/matrix";
 
 import { type DeviceListener } from ".";
+import SdkConfig from "../SdkConfig";
 import { getUserDeviceIds } from "../utils/crypto/deviceInfo";
 import { isBulkUnverifiedDeviceReminderSnoozed } from "../utils/device/snoozeBulkUnverifiedDeviceReminder";
 import {
@@ -174,6 +175,15 @@ export class DeviceListenerOtherDevices {
         logSpan.debug("Old unverified sessions: " + Array.from(oldUnverifiedDeviceIds).join(","));
         logSpan.debug("New unverified sessions: " + Array.from(newUnverifiedDeviceIds).join(","));
         logSpan.debug("Currently showing toasts for: " + Array.from(this.displayingToastsForDeviceIds).join(","));
+
+        if (SdkConfig.get("disable_unverified_session_toasts")) {
+            hideBulkUnverifiedSessionsToast();
+            for (const deviceId of this.displayingToastsForDeviceIds) {
+                hideUnverifiedSessionToast(deviceId);
+            }
+            this.displayingToastsForDeviceIds.clear();
+            return;
+        }
 
         const isBulkUnverifiedSessionsReminderSnoozed = isBulkUnverifiedDeviceReminderSnoozed();
 

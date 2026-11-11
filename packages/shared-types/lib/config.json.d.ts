@@ -55,6 +55,8 @@ export interface WebConfigJson {
 
     force_verification?: boolean; // if true, users must verify new logins
 
+    disable_unverified_session_toasts?: boolean; // if true, do not prompt existing sessions about other unverified devices
+
     map_style_url?: string; // for location-shared maps
 
     embedded_pages?: {

@@ -70,19 +70,19 @@ describe("<LoginWithQRSection />", () => {
 
             test("no homeserver support", async () => {
                 const { container } = render(getComponent({ versions: makeVersions({ "org.matrix.msc4108": false }) }));
-                expect(container.textContent).toContain("Not supported by your account provider");
+                expect(container).toBeEmptyDOMElement();
             });
 
             test("no support in crypto", async () => {
                 client.getCrypto()!.exportSecretsBundle = undefined;
                 const { container } = render(getComponent({ client }));
-                expect(container.textContent).toContain("Not supported by your account provider");
+                expect(container).toBeEmptyDOMElement();
             });
 
             test("failed to connect", async () => {
                 fetchMock.catch(500);
                 const { container } = render(getComponent({ client }));
-                expect(container.textContent).toContain("Not supported by your account provider");
+                expect(container).toBeEmptyDOMElement();
             });
         });
     });
