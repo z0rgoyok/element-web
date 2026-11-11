@@ -146,11 +146,14 @@ export async function connectTransport(request: Request, send: typeof fetch = fe
 /** Match only same-origin Matrix mutations; keep normal GET/media handling intact. */
 export function isConnectMutation(request: Request, origin: string): boolean {
     const url = new URL(request.url);
+    const isRendezvous = url.pathname.startsWith("/_synapse/client/rendezvous/");
+    const isMutation = ["POST", "PUT", "DELETE", "PATCH"].includes(request.method);
     return (
         url.origin === origin &&
-        ["POST", "PUT", "DELETE", "PATCH"].includes(request.method) &&
+        (isMutation || (isRendezvous && request.method === "GET")) &&
         (url.pathname.startsWith("/_matrix/client/") ||
             url.pathname.startsWith("/_matrix/media/") ||
-            url.pathname.startsWith("/auth/"))
+            url.pathname.startsWith("/auth/") ||
+            isRendezvous)
     );
 }
