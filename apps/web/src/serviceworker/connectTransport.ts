@@ -119,7 +119,7 @@ export async function connectTransport(request: Request, send: typeof fetch = fe
                 throw new Error("Invalid Connect response envelope");
             }
             const responseHeaders = new Headers({ "Cache-Control": "no-store" });
-            for (const name of ["Content-Type", "Retry-After", "WWW-Authenticate"]) {
+            for (const name of ["Content-Type", "ETag", "Retry-After", "WWW-Authenticate"]) {
                 const value = envelope.headers[name];
                 if (value !== undefined) {
                     if (typeof value !== "string" || value.length > 4096) throw new Error("Invalid Connect header");
