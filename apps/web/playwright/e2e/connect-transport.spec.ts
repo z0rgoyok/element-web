@@ -17,7 +17,7 @@ test("Connect controls the first page and transports fetch and XHR without VPN",
             body: JSON.stringify({ fixture: "login" }),
         });
         const loginBody = await login.json();
-        document.cookie = "connect_fixture=request; path=/; SameSite=Lax";
+        document.cookie = "connect_fixture=request; path=/auth; SameSite=Lax";
         const cookieResponse = await fetch("/_matrix/client/v3/cookie", {
             method: "POST",
             credentials: "same-origin",
@@ -25,7 +25,13 @@ test("Connect controls the first page and transports fetch and XHR without VPN",
             body: "{}",
         });
         const cookieBody = await cookieResponse.json();
-        const cookiesAfterResponse = document.cookie;
+        const cookieConfirm = await fetch("/auth/cookie-confirm", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: "{}",
+        });
+        const cookieConfirmBody = await cookieConfirm.json();
         const bytes = new Uint8Array(1024 * 1024).map((_, index) => index % 251);
         const upload = await new Promise<string>((resolve, reject) => {
             const xhr = new XMLHttpRequest();
@@ -41,7 +47,8 @@ test("Connect controls the first page and transports fetch and XHR without VPN",
             loginBody,
             cookieStatus: cookieResponse.status,
             cookieBody,
-            cookiesAfterResponse,
+            cookieConfirmStatus: cookieConfirm.status,
+            cookieConfirmBody,
             upload: JSON.parse(upload),
             logoutStatus: logout.status,
         };
@@ -51,7 +58,8 @@ test("Connect controls the first page and transports fetch and XHR without VPN",
         loginBody: { fixture: "login" },
         cookieStatus: 200,
         cookieBody: { cookie: true },
-        cookiesAfterResponse: "connect_fixture=response",
+        cookieConfirmStatus: 200,
+        cookieConfirmBody: { cookie: true },
         upload: { size: 1024 * 1024, valid: true },
         logoutStatus: 204,
     });
