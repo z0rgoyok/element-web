@@ -31,7 +31,7 @@ export async function connectTransport(request: Request, send: typeof fetch = fe
     ).join("");
     const id = `${Date.now().toString(16).padStart(16, "0")}-${random}`;
     const headers: Record<string, string> = {};
-    for (const name of ["authorization", "content-type"]) {
+    for (const name of ["authorization", "content-type", "if-none-match", "if-match"]) {
         const value = request.headers.get(name);
         if (value) headers[name] = value;
     }
