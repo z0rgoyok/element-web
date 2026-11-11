@@ -44,7 +44,6 @@ import SettingsStore from "./settings/SettingsStore";
 import { SettingLevel } from "./settings/SettingLevel";
 import { isBulkUnverifiedDeviceReminderSnoozed } from "./utils/device/snoozeBulkUnverifiedDeviceReminder";
 import { PosthogAnalytics } from "./PosthogAnalytics";
-import SdkConfig from "./SdkConfig";
 
 vi.mock("./dispatcher/dispatcher", () => ({
     default: {
@@ -84,7 +83,6 @@ describe("DeviceListener", () => {
     let mockCrypto: Mocked<CryptoApi>;
 
     afterEach(() => {
-        SdkConfig.put({ disable_unverified_session_toasts: false });
         vi.resetAllMocks();
     });
 
@@ -819,19 +817,6 @@ describe("DeviceListener", () => {
             });
 
             describe("bulk unverified sessions toasts", () => {
-                it("hides all other-device toasts when disabled", async () => {
-                    SdkConfig.put({ disable_unverified_session_toasts: true });
-                    mockCrypto!.getDeviceVerificationStatus.mockImplementation(async (_userId, deviceId) => {
-                        return deviceId === device3.deviceId ? deviceTrustUnverified : deviceTrustVerified;
-                    });
-
-                    await createAndStart();
-
-                    expect(BulkUnverifiedSessionsToast.showToast).not.toHaveBeenCalled();
-                    expect(UnverifiedSessionToast.showToast).not.toHaveBeenCalled();
-                    expect(BulkUnverifiedSessionsToast.hideToast).toHaveBeenCalled();
-                });
-
                 it("hides toast when cross signing is not ready", async () => {
                     mockCrypto!.isCrossSigningReady.mockResolvedValue(false);
                     await createAndStart();
