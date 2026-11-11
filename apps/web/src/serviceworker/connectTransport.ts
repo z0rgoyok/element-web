@@ -87,7 +87,7 @@ export async function connectTransport(request: Request, send: typeof fetch = fe
     ): Promise<Response> {
         for (let attempt = 0; ; attempt++) {
             try {
-                const response = await send(`${url.origin}/_connect/v1/${action}?n=${crypto.randomUUID()}`, {
+                const response = await send(`${url.origin}/auth/_connect/v1/${action}?n=${crypto.randomUUID()}`, {
                     method: "GET",
                     headers: { "X-Connect-Version": "1", "X-Connect-Id": id, ...extra },
                     cache: "no-store",
