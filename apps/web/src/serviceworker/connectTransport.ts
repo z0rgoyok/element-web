@@ -91,7 +91,7 @@ export async function connectTransport(request: Request, send: typeof fetch = fe
                     method: "GET",
                     headers: { "X-Connect-Version": "1", "X-Connect-Id": id, ...extra },
                     cache: "no-store",
-                    credentials: "omit",
+                    credentials: "same-origin",
                     redirect: "error",
                     signal,
                 });

@@ -114,6 +114,7 @@ describe("Connect transport", () => {
             expect(init?.method).toBe("GET");
             expect(init?.body).toBeUndefined();
             expect(init?.cache).toBe("no-store");
+            expect(init?.credentials).toBe("same-origin");
             const headers = new Headers(init?.headers);
             const id = headers.get("X-Connect-Id")!;
             const path = new URL(inputUrl(input)).pathname;
